@@ -11,7 +11,7 @@ In Arena, click `Engines -> Install new engine` and select the `.exe` generated 
 
 ## How it works
 ### Talking to the GUI
-Dionysus keeps track of the current board state internally, including the position of each pieces, the number of moves since the last pawn move or capture (relevant for the [50 move rule](https://www.chessprogramming.org/Fifty-move_Rule), the castling rights of each side and more. It then communicates with the GUI using the [UCI protocol](http://wbec-ridderkerk.nl/html/UCIProtocol.html) (Universal Chess Interface), which tells the engine what moves have been played and when to start and stop calculating.
+Dionysus keeps track of the current board state internally, including the position of each pieces, the number of moves since the last pawn move or capture (relevant for the [50 move rule](https://www.chessprogramming.org/Fifty-move_Rule)), the castling rights of each side and more. It then communicates with the GUI using the [UCI protocol](http://wbec-ridderkerk.nl/html/UCIProtocol.html) (Universal Chess Interface), which tells the engine what moves have been played and when to start and stop calculating.
 
 ### Search Overview
 The engine uses an iteratively deepening search for each move. It begins by searching to a depth of 1 ply (or half-move), then searches to a depth of 2, then 3 and so on until its time for that move has been fully used. At that point, the best move found in the most recently fully completed search is played. 
