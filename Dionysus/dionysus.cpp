@@ -97,7 +97,7 @@ void process_UCI() {
 
 		//if unrecognised command
 		else {
-			std::cout << "QUE??" << std::endl;
+			std::cout << "*Unrecognised command" << std::endl;
 		}
 	}
 	
