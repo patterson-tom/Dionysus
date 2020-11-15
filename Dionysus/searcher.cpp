@@ -69,7 +69,7 @@ SearchResult Searcher::negamax(int depth, double alpha, double beta, Board *boar
 
 	double alphaOrig = alpha;
 	
-
+	
 	//check to see if this position has already been calculated to this depth or further
 	TransTableEntry* trans_entry = trans_table.get_if_exists(board->get_zobrist_hash());
 	if (trans_entry->flag != NOT_PRESENT && trans_entry->depth >= depth) {
@@ -93,9 +93,10 @@ SearchResult Searcher::negamax(int depth, double alpha, double beta, Board *boar
 		}
 	}
 
+	//initial best move seen
 	SearchResult value = { {0,0,0,0,0} , (double)INT_MIN - depth - 10 };
 
-	//get all valid moves and sort by captures, increasing ab prunign effectiveness as it is more likely that successful moves are tried earlier
+	//get all valid moves and sort by captures, increasing ab pruning effectiveness as it is more likely that successful moves are tried earlier
 	std::vector<Move> valid_moves = board->get_valid_moves(board->is_white_to_move() ? WHITE : BLACK);
 	std::sort(valid_moves.begin(), valid_moves.end(), compare_moves);
 

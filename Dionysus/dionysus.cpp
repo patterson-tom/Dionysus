@@ -107,17 +107,6 @@ void process_UCI() {
 
 
 
-int main() {
-	/*//Board b("8/6Q1/4p3/7k/3QP1pp/8/5K1B/8 w - - 0 1");
-	Board b("4k2r/8/8/8/8/8/8/7Q w k - 0 1");
-	Move O_O = { BLACK, 4, 6, KING, KING, EMPTY_SQUARE };
-	std::cout << b.make_move(O_O) << std::endl;
-	b.print_board();
-	/*std::vector<Move> m =  b.get_valid_moves(BLACK);
-	std::cout << b.is_threatened(WHITE, 0) << std::endl;
-	for (auto it : m) {
-		std::cout << it.start % 8 << "," << it.start / 8 << " to " << it.end % 8 << "," << it.end / 8 << std::endl;
-	}*/
-	
+int main() {	
 	process_UCI(); 
 }

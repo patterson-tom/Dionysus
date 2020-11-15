@@ -5,7 +5,6 @@
 #include <iostream>
 #include <iomanip>
 #include <map>
-#include <random>
 
 Board::Board() {
 	generate_zobrist_keys();
@@ -105,8 +104,18 @@ void Board::init_from_fen(std::string fen) {
 		en_passant_target = { EMPTY_SQUARE };
 	}
 	else {
-		en_passant_target = { get_square_index_from_notation(ep_target) };
-		zobrist_hash[0] ^= zobrist_keys::en_passant_target[ep_target[0] - 'a'];
+		int target = get_square_index_from_notation(ep_target);
+		int pawn_square = target + white_to_move ? -8 : 8;
+		int opp = white_to_move ? WHITE : BLACK;
+		//if there is actually an enemy pawn threatening us
+		if ((pawn_square % 8 < 7 && squares[pawn_square + 1] == (opp * 6 + PAWN)) || (pawn_square % 8 > 0 && squares[pawn_square - 1] == (opp * 6 + PAWN))) {
+			en_passant_target = { target };
+			zobrist_hash[0] ^= zobrist_keys::en_passant_target[ep_target[0] - 'a'];
+		}
+		else {
+			en_passant_target = { EMPTY_SQUARE };
+		}
+		
 	}
 
 	//HALF MOVE CLOCK
@@ -119,34 +128,34 @@ void Board::init_from_fen(std::string fen) {
 	//Not currently being used
 }
 
-//generate a pseudorandom key for each possible board feature
+//set the zobrist key for each possible board feature
 //to create zobrist hash, all applicable keys are XORed together
 void Board::generate_zobrist_keys() {
-	std::mt19937_64 rand_eng(2510);
-	std::uniform_int_distribution<unsigned long long> distr;
 
 	//side to move key
-	zobrist_keys::white_to_move = distr(rand_eng);
+	zobrist_keys::white_to_move = zobrist_keys::keys[780];
 
 	//castling rights keys
 	zobrist_keys::can_castle = { {0,0}, {0,0} };
 	for (int i = 0; i < 2; i++) {
 		for (int j = 0; j < 2; j++) {
-			zobrist_keys::can_castle[i][j] = distr(rand_eng);
+			zobrist_keys::can_castle[i][j] = zobrist_keys::keys[768 + i * 2 + (1 - j)];
 		}
 	}
 
 	//en_passant_target keys
 	for (int i = 0; i < 8; i++) {
-		zobrist_keys::en_passant_target.push_back(distr(rand_eng));
+		zobrist_keys::en_passant_target.push_back(zobrist_keys::keys[772+i]);
 	}
 
 	//piece locations keys
-	for (int i = 0; i < 64; i++) {
-		zobrist_keys::piece_locations.push_back({ {0,0,0,0,0,0}, {0,0,0,0,0,0} });
-		for (int j = 0; j < 2; j++) {
-			for (int k = 0; k < 6; k++) {
-				zobrist_keys::piece_locations[i][j][k] = distr(rand_eng);
+	for (int r = 0; r < 8; r++) {
+		for (int c = 0; c < 8; c++) {
+			zobrist_keys::piece_locations.push_back({ {0,0,0,0,0,0}, {0,0,0,0,0,0} });
+			for (int j = 0; j < 2; j++) {
+				for (int k = 0; k < 6; k++) {
+					zobrist_keys::piece_locations[r * 8 + c][j][k] = zobrist_keys::keys[(7 - r) * 8 + c + 64 * (k*2+(1-j))];
+				}
 			}
 		}
 	}
@@ -176,20 +185,20 @@ bool Board::make_move(Move m) {
 	if (m.start_type == ROOK) {
 		//if rook started on left
 		if (m.start % 8 == 0) {
-			can_castle.back()[m.player == WHITE ? WHITE : BLACK][LEFT] = false;
-			zobrist_hash.back() ^= zobrist_keys::can_castle[m.player == WHITE ? BLACK : WHITE][LEFT];
+			can_castle.back()[m.player][LEFT] = false;
+			zobrist_hash.back() ^= zobrist_keys::can_castle[m.player][LEFT];
 		} //if rook started in right
 		else if (m.start % 8 == 7) {
-			can_castle.back()[m.player == WHITE ? WHITE : BLACK][RIGHT] = false;
-			zobrist_hash.back() ^= zobrist_keys::can_castle[m.player == WHITE ? BLACK : WHITE][RIGHT];
+			can_castle.back()[m.player][RIGHT] = false;
+			zobrist_hash.back() ^= zobrist_keys::can_castle[m.player][RIGHT];
 		}
-	}//if king moved, update kigng pos and remove castle rights
+	}//if king moved, update king pos and remove castle rights
 	else if (m.start_type == KING) {
-		can_castle.back()[m.player == WHITE ? WHITE : BLACK][LEFT] = false;
-		can_castle.back()[m.player == WHITE ? WHITE : BLACK][RIGHT] = false;
+		can_castle.back()[m.player][LEFT] = false;
+		can_castle.back()[m.player][RIGHT] = false;
 
-		zobrist_hash.back() ^= zobrist_keys::can_castle[m.player == WHITE ? BLACK : WHITE][LEFT];
-		zobrist_hash.back() ^= zobrist_keys::can_castle[m.player == WHITE ? BLACK : WHITE][RIGHT];
+		zobrist_hash.back() ^= zobrist_keys::can_castle[m.player][LEFT];
+		zobrist_hash.back() ^= zobrist_keys::can_castle[m.player][RIGHT];
 
 		//update king_positions
 		king_positions.back()[m.player] = m.end;
@@ -209,8 +218,12 @@ bool Board::make_move(Move m) {
 	}
 	en_passant_target.push_back(EMPTY_SQUARE);
 	if (m.start_type == PAWN && abs(m.start - m.end) == 16) {
-		en_passant_target.back() = (m.start + m.end) / 2;
-		zobrist_hash.back() ^= zobrist_keys::en_passant_target[m.start % 8];
+		int opp = m.player == WHITE ? BLACK : WHITE;
+		//if there is actually an enemy pawn threatening us
+		if ((m.end % 8 < 7 && squares[m.end + 1] == (opp * 6 + PAWN)) || (m.end % 8 > 0 && squares[m.end - 1] == (opp * 6 + PAWN))) {
+			en_passant_target.back() = (m.start + m.end) / 2;
+			zobrist_hash.back() ^= zobrist_keys::en_passant_target[m.start % 8];
+		}
 	}
 
 	//if en passant
@@ -328,7 +341,7 @@ bool Board::is_threatened(int player, int pos, std::vector<Move> moves) {
 //has the current position been seen twice before
 bool Board::is_three_move_rep() {
 	//if pawn move or capture in last 6, impossible for three fold rep
-	if (half_move_clock.back() < 6) return false;
+	if (half_move_clock.back() < 4) return false;
 
 	//iterate backwards and count occurences of current hash, until last irreversible move
 	int seen = 1;
