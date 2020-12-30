@@ -9,7 +9,7 @@ g++ *.cpp -o dionysus.exe
 Now, you need to download a GUI to run the engine with. I recommend [Arena](http://www.playwitharena.de/), but any UCI-compatible GUI should work.
 In Arena, click `Engines -> Install new engine` and select the `.exe` generated above. Dionysus should then be loaded into the GUI. You can now either click the `demo` button to watch Dionysus play against itself, or start making moves as white to play against it.
 
-To use an opening book, you will need to download one. Currently, only the [Formula17]() opening book is supported, but plans are for custom books to be supported in the future.
+To use an opening book, you will need to download one. Currently, only the [Formula17](https://rybkaforum.net/cgi-bin/rybkaforum/topic_show.pl?tid=33232) opening book is supported, but plans are for custom books to be supported in the future.
 Download and unzip the file, leaving the `Book_Formula17` folder next to the generated `.exe`.
 
 ## How it works
