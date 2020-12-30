@@ -19,3 +19,5 @@
 #define RESET   "\033[0m"
 #define RED     "\033[31m"      
 #define GREEN   "\033[32m"
+
+#define BOOK_NAME "Book_Formula17/Formula17.bin"

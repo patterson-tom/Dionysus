@@ -12,6 +12,7 @@
 
 Searcher::Searcher() {
 	trans_table.clear();
+	if (using_opening_book) init_opening_book();
 }
 
 //used to sort moves before alpah beta pruning
@@ -33,6 +34,39 @@ bool compare_moves(Move a, Move b) {
 	return (a.prev_square % 6) > (b.prev_square % 6);
 }
 
+//load opening book moves into memory
+void Searcher::init_opening_book() {
+	FILE* book;
+	errno_t res = fopen_s(&book, BOOK_NAME, "r");
+
+	//if opening the file failed
+	if (res != 0 || !book) {
+		std::cout << "Cant open file" << std::endl;
+		using_opening_book = false;
+		return;
+	}
+
+	//find out how many entries there are
+	long num_entries;
+	fseek(book, 0, SEEK_END);
+	num_entries = ftell(book) / sizeof(BookEntry);
+	rewind(book);
+
+	entries = (BookEntry*)malloc(sizeof(BookEntry) * num_entries);
+
+	if (!entries) {
+		std::cout << "Something went wrong" << std::endl;
+		using_opening_book = false;
+		return;
+	}
+
+	//actually read the data
+	int result = fread(entries, sizeof(BookEntry), num_entries, book);
+
+	using_opening_book = num_entries > 0;
+	book_size = num_entries;
+}
+
 //quiescence is run at each terminal node in negamax, to stabilise the position
 //means we do not stop search halfway through a queen trade, and think we are a queen up/down
 double Searcher::quiescence(double alpha, double beta, Board *board) {
@@ -49,7 +83,7 @@ double Searcher::quiescence(double alpha, double beta, Board *board) {
 	std::sort(valid_moves.begin(), valid_moves.end(), compare_moves);
 
 	//iterate through each capture, as in negamax
-	for (Move m : valid_moves) {
+	for (const Move &m : valid_moves) {
 		if (board->make_move(m)) {
 			double score = -quiescence(-beta, -alpha, board);
 			board->undo_move(m);
@@ -105,7 +139,7 @@ SearchResult Searcher::negamax(int depth, double alpha, double beta, Board *boar
 	if (first.player != -1) valid_moves.insert(valid_moves.begin(), first);
 
 	//iterate through each move
-	for (Move m : valid_moves) {
+	for (const Move &m : valid_moves) {
 		if (board->make_move(m)) {
 			SearchResult sr;
 
@@ -162,9 +196,10 @@ SearchResult Searcher::negamax(int depth, double alpha, double beta, Board *boar
 }
 
 //stops the search after milliseconds
-void Searcher::stop_searching(int milliseconds) {
+//only if we are still doing the same search - could be onto the next one if for example the other search was stopped early to play a book move
+void Searcher::stop_searching(int milliseconds, int SID) {
 	std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
-	stop();
+	if (SID == searchID) stop();
 }
 
 void Searcher::stop() {
@@ -176,7 +211,42 @@ Move Searcher::get_best_move(int milliseconds, Board *board) {
 	searching = true;
 
 	//starts timer
-	std::thread stop_search([this, milliseconds] { stop_searching(milliseconds); });
+	searchID++;
+	std::thread stop_search([this, milliseconds] { stop_searching(milliseconds, searchID); });
+
+	//check for a book move
+	//have to swap the endianness of all the fields in each entry, since they are stored in the binary field as big endian
+	if (using_opening_book) {
+		std::vector<BookEntry*> matches;
+		int total_weight = 0;
+		//collect all the entries together which fit the current position
+		for (int i = 0; i < book_size; i++) {
+			if (board->get_zobrist_hash() == endian_swap_u64(entries[i].key)) {
+				matches.push_back(&entries[i]);
+				entries[i].weight = endian_swap_u16(entries[i].weight);
+				total_weight += entries[i].weight;
+			}
+		}
+		//if we found any entries for this position
+		//choose a random one based on the weighting of each entry
+		if (total_weight > 0) {
+			std::random_device rd; // obtain a random number from hardware
+			std::mt19937 gen(rd()); // seed the generator
+			std::uniform_int_distribution<> distr(0, total_weight); // define the range
+			int r = distr(gen); // generate a random integer
+			int cum_weight = 0;
+			for (const auto entry : matches) {
+				cum_weight += entry->weight;
+				//return the formatted move which we land on
+				if (cum_weight >= r) {
+					Move m = decipher_polyglot_move_code(endian_swap_u16(entry->move), board);
+					std::cout << "Using book move" << std::endl;
+					stop_search.detach();
+					return m;
+				}
+			}
+		}
+	}
 
 	trans_table.clear();
 
@@ -213,4 +283,61 @@ Move Searcher::get_random_move(Board *board) {
 	}
 
 	return valid_moves[i];
+}
+
+Move Searcher::decipher_polyglot_move_code(unsigned short code, Board *board) {
+
+	//extract eahc piece of information from bit field
+	int dst_file = (code >> 0) & 7;
+	int dst_row = (code >> 3) & 7;
+	int src_file = (code >> 6) & 7;
+	int src_row = (code >> 9) & 7;
+	int prom_pc = (code >> 12) & 7;
+
+	//convert row/file to the index in board's representation
+	int src_code = (7 - src_row) * 8 + src_file;
+	int dst_code = (7 - dst_row) * 8 + dst_file;
+
+	int prev_square = board->get_square(dst_code);
+
+	//determine the start and end piece types
+	int starting_piece = board->get_square(src_code) % 6;
+	int end_piece = starting_piece;
+	switch (prom_pc) {
+	case 0:
+		break;
+	case 1:
+		end_piece = KNIGHT;
+		break;
+	case 2:
+		end_piece = BISHOP;
+		break;
+	case 3:
+		end_piece = ROOK;
+		break;
+	case 4:
+		end_piece = QUEEN;
+		break;
+	}
+
+	int player = board->is_white_to_move() ? WHITE : BLACK;
+
+	//if castle, need to change target square to just 2 squares along instead of on the rook
+	if (starting_piece == KING) {
+		std::vector<std::pair<int, int>> castle_moves = { std::make_pair(4, 7), std::make_pair(4, 0), std::make_pair(60, 63), std::make_pair(60, 56) };
+
+		for (int i = 0; i < 4; i++) {
+			if (src_code == castle_moves[i].first && dst_code == castle_moves[i].second) {
+				prev_square = EMPTY_SQUARE;
+				dst_code = src_code + (dst_code > src_code ? 2 : -2);
+				break;
+			}
+		}
+	}
+
+	//return the extracted move
+	Move m = { player, src_code, dst_code, starting_piece, end_piece, prev_square };
+	return m;
+
+	
 }

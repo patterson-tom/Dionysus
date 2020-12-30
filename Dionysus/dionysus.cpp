@@ -1,10 +1,12 @@
 #include <iostream>
 #include <thread>
+#include <stdio.h>
 
 #include "board.h"
 #include "move.h"
 #include "utils.h"
 #include "searcher.h"
+#include "defs.h"
 
 Board board;
 Searcher searcher;
@@ -77,7 +79,6 @@ void process_UCI() {
 
 		//when recieve go, start searching on currently loaded position
 		else if (command == "go") {
-
 			//need to join thread from previous search before we can start this one
 			if (first_search) first_search = false;
 			else searching_thread.join();
@@ -105,8 +106,6 @@ void process_UCI() {
 	searching_thread.detach();
 }
 
-
-
 int main() {	
-	process_UCI(); 
+	process_UCI();
 }

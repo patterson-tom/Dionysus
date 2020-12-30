@@ -403,6 +403,10 @@ std::vector<int> Board::get_squares() {
 	return squares;
 }
 
+int Board::get_square(int ind) {
+	return squares[ind];
+}
+
 bool Board::is_white_to_move() {
 	return white_to_move;
 }

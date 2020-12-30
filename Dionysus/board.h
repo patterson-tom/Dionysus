@@ -56,6 +56,7 @@ public:
 	bool is_threatened(int, int, std::vector<Move>);
 
 	std::vector<int> get_squares();
+	int get_square(int ind);
 	bool is_white_to_move();
 	std::vector<std::vector<bool>> get_castling_rights();
 	int get_half_move_clock();
