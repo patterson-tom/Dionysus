@@ -105,7 +105,8 @@ void Board::init_from_fen(std::string fen) {
 	}
 	else {
 		int target = get_square_index_from_notation(ep_target);
-		int pawn_square = target + white_to_move ? -8 : 8;
+		int pawn_square = target + (white_to_move ? 8 : -8);
+		std::cout << target << std::endl;
 		int opp = white_to_move ? WHITE : BLACK;
 		//if there is actually an enemy pawn threatening us
 		if ((pawn_square % 8 < 7 && squares[pawn_square + 1] == (opp * 6 + PAWN)) || (pawn_square % 8 > 0 && squares[pawn_square - 1] == (opp * 6 + PAWN))) {
@@ -357,31 +358,6 @@ bool Board::is_three_move_rep() {
 	return false;
 }
 
-//currently only based on piece values and mobility (number of available moves)
-double Board::evaluate_position() {
-
-	double val = 0;
-
-	val += piece_counts.back()[WHITE][PAWN];
-	val += piece_counts.back()[WHITE][KNIGHT] * 3;
-	val += piece_counts.back()[WHITE][BISHOP] * 3;
-	val += piece_counts.back()[WHITE][ROOK] * 5;
-	val += piece_counts.back()[WHITE][QUEEN] * 9;
-	val += piece_counts.back()[WHITE][KING] * 50;
-
-	val -= piece_counts.back()[BLACK][PAWN];
-	val -= piece_counts.back()[BLACK][KNIGHT] * 3;
-	val -= piece_counts.back()[BLACK][BISHOP] * 3;
-	val -= piece_counts.back()[BLACK][ROOK] * 5;
-	val -= piece_counts.back()[BLACK][QUEEN] * 9;
-	val -= piece_counts.back()[BLACK][KING] * 50;
-
-	val += get_valid_moves(WHITE).size() * 0.1;
-	val -= get_valid_moves(BLACK).size() * 0.1;
-
-	return val;
-}
-
 void Board::print_board() {
 	std::cout << std::endl;
 	for (int r = 0; r < 8; r++) {
@@ -395,7 +371,6 @@ void Board::print_board() {
 				std::cout << GREEN << get_char_from_piece(code % 6) << RESET << " ";
 			}
 		}
-		std::cout << std::endl;
 	}
 }
 
@@ -425,4 +400,171 @@ int Board::get_en_passant_target() {
 
 unsigned long long Board::get_zobrist_hash() {
 	return zobrist_hash.back();
+}
+
+std::vector<std::vector<std::vector<double>>> piece_square_tables =
+//pawn
+{ {{0,  0,  0,  0,  0,  0,  0,  0},
+{50, 50, 50, 50, 50, 50, 50, 50},
+{10, 10, 20, 30, 30, 20, 10, 10},
+{5,  5, 10, 25, 25, 10,  5,  5},
+{0,  0,  0, 20, 20,  0,  0,  0},
+{5, -5,-10,  0,  0,-10, -5,  5},
+{5, 10, 10,-20,-20, 10, 10,  5},
+{0,  0,  0,  0,  0,  0,  0,  0}},
+
+//knight
+{{-50,-40,-30,-30,-30,-30,-40,-50},
+{-40,-20,  0,  0,  0,  0,-20,-40},
+{-30,  0, 10, 15, 15, 10,  0,-30},
+{-30,  5, 15, 20, 20, 15,  5,-30},
+{-30,  0, 15, 20, 20, 15,  0,-30},
+{-30,  5, 10, 15, 15, 10,  5,-30},
+{-40,-20,  0,  5,  5,  0,-20,-40},
+{-50,-40,-30,-30,-30,-30,-40,-50}},
+
+//bishop
+{{-20,-10,-10,-10,-10,-10,-10,-20},
+{-10,  0,  0,  0,  0,  0,  0,-10},
+{-10,  0,  5, 10, 10,  5,  0,-10},
+{-10,  5,  5, 10, 10,  5,  5,-10},
+{-10,  0, 10, 10, 10, 10,  0,-10},
+{-10, 10, 10, 10, 10, 10, 10,-10},
+{-10,  5,  0,  0,  0,  0,  5,-10},
+{-20,-10,-10,-10,-10,-10,-10,-20}},
+
+//rook
+{{0,  0,  0,  0,  0,  0,  0,  0},
+{5, 10, 10, 10, 10, 10, 10,  5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{0,  0,  0,  5,  5,  0,  0,  0}},
+
+//queen
+{{-20,-10,-10, -5, -5,-10,-10,-20},
+{-10,  0,  0,  0,  0,  0,  0,-10},
+{-10,  0,  5,  5,  5,  5,  0,-10},
+{-5,  0,  5,  5,  5,  5,  0, -5},
+{0,  0,  5,  5,  5,  5,  0, -5},
+{-10,  5,  5,  5,  5,  5,  0,-10},
+{-10,  0,  5,  0,  0,  0,  0,-10},
+{-20,-10,-10, -5, -5,-10,-10,-20}},
+
+//king
+{{-30,-40,-40,-50,-50,-40,-40,-30},
+{-30,-40,-40,-50,-50,-40,-40,-30},
+{-30,-40,-40,-50,-50,-40,-40,-30},
+{-30,-40,-40,-50,-50,-40,-40,-30},
+{-20,-30,-30,-40,-40,-30,-30,-20},
+{-10,-20,-20,-20,-20,-20,-20,-10},
+{20, 20,  0,  0,  0,  0, 20, 20},
+{20, 30, 10,  0,  0, 10, 30, 20}} };
+
+//only change is king 
+std::vector<std::vector<std::vector<double>>> endgame_piece_square_tables =
+//pawn
+{ {{0,  0,  0,  0,  0,  0,  0,  0},
+{50, 50, 50, 50, 50, 50, 50, 50},
+{10, 10, 20, 30, 30, 20, 10, 10},
+{5,  5, 10, 25, 25, 10,  5,  5},
+{0,  0,  0, 20, 20,  0,  0,  0},
+{5, -5,-10,  0,  0,-10, -5,  5},
+{5, 10, 10,-20,-20, 10, 10,  5},
+{0,  0,  0,  0,  0,  0,  0,  0}},
+
+//knight
+{{-50,-40,-30,-30,-30,-30,-40,-50},
+{-40,-20,  0,  0,  0,  0,-20,-40},
+{-30,  0, 10, 15, 15, 10,  0,-30},
+{-30,  5, 15, 20, 20, 15,  5,-30},
+{-30,  0, 15, 20, 20, 15,  0,-30},
+{-30,  5, 10, 15, 15, 10,  5,-30},
+{-40,-20,  0,  5,  5,  0,-20,-40},
+{-50,-40,-30,-30,-30,-30,-40,-50}},
+
+//bishop
+{{-20,-10,-10,-10,-10,-10,-10,-20},
+{-10,  0,  0,  0,  0,  0,  0,-10},
+{-10,  0,  5, 10, 10,  5,  0,-10},
+{-10,  5,  5, 10, 10,  5,  5,-10},
+{-10,  0, 10, 10, 10, 10,  0,-10},
+{-10, 10, 10, 10, 10, 10, 10,-10},
+{-10,  5,  0,  0,  0,  0,  5,-10},
+{-20,-10,-10,-10,-10,-10,-10,-20}},
+
+//rook
+{{0,  0,  0,  0,  0,  0,  0,  0},
+{5, 10, 10, 10, 10, 10, 10,  5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{-5,  0,  0,  0,  0,  0,  0, -5},
+{0,  0,  0,  5,  5,  0,  0,  0}},
+
+//queen
+{{-20,-10,-10, -5, -5,-10,-10,-20},
+{-10,  0,  0,  0,  0,  0,  0,-10},
+{-10,  0,  5,  5,  5,  5,  0,-10},
+{-5,  0,  5,  5,  5,  5,  0, -5},
+{0,  0,  5,  5,  5,  5,  0, -5},
+{-10,  5,  5,  5,  5,  5,  0,-10},
+{-10,  0,  5,  0,  0,  0,  0,-10},
+{-20,-10,-10, -5, -5,-10,-10,-20}},
+
+//king
+{{-50,-40,-30,-20,-20,-30,-40,-50},
+{-30,-20,-10,  0,  0,-10,-20,-30},
+{-30,-10, 20, 30, 30, 20,-10,-30},
+{-30,-10, 30, 40, 40, 30,-10,-30},
+{-30,-10, 30, 40, 40, 30,-10,-30},
+{-30,-10, 20, 30, 30, 20,-10,-30},
+{-30,-30,  0,  0,  0,  0,-30,-30},
+{-50,-30,-30,-30,-30,-30,-30,-50}} };
+
+//currently only based on piece values and mobility (number of available moves)
+double Board::evaluate_position() {
+
+	double val = 0;
+	double wpiece_count = 0;
+	double bpiece_count = 0;
+
+	//count material for either side
+	wpiece_count += piece_counts.back()[WHITE][PAWN];
+	wpiece_count += piece_counts.back()[WHITE][KNIGHT] * 3.1;
+	wpiece_count += piece_counts.back()[WHITE][BISHOP] * 3.3;
+	wpiece_count += piece_counts.back()[WHITE][ROOK] * 5;
+	wpiece_count += piece_counts.back()[WHITE][QUEEN] * 9.25;
+
+	bpiece_count += piece_counts.back()[BLACK][PAWN];
+	bpiece_count += piece_counts.back()[BLACK][KNIGHT] * 3.1;
+	bpiece_count += piece_counts.back()[BLACK][BISHOP] * 3.3;
+	bpiece_count += piece_counts.back()[BLACK][ROOK] * 5;
+	bpiece_count += piece_counts.back()[BLACK][QUEEN] * 9.25;
+
+	val += wpiece_count - bpiece_count;
+
+	//use different piece square table for endgame, as better to bring king into centre then
+	bool endgame = std::min(wpiece_count, bpiece_count) <= 8;
+
+	//piece square table to give better place pieces better weight
+	for (int r = 0; r < 8; r++) {
+		for (int c = 0; c < 8; c++) {
+			if (squares[r * 8 + c] == EMPTY_SQUARE) continue;
+			int code = squares[r * 8 + c];
+			if (code / 6 == WHITE) {
+				if (endgame) val += endgame_piece_square_tables[code % 6][r][c] * 0.01;
+				else val += piece_square_tables[code % 6][r][c] * 0.01;
+			}
+			else {
+				if (endgame) val -= endgame_piece_square_tables[code % 6][7 - r][c] * 0.01;
+				else val -= piece_square_tables[code % 6][7 - r][c] * 0.01;
+			}
+		}
+	}
+
+	return val;
 }

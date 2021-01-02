@@ -191,7 +191,8 @@ SearchResult Searcher::negamax(int depth, double alpha, double beta, Board *boar
 	}
 
 	//store this result in the transposition table for the future
-	if (searching) {
+	//if we are still looking and if the move is not still the default from above
+	if (searching && value.score > (double)INT_MIN - depth - 10) {
 		TransTableEntry new_trans_entry = { EXACT, value, depth };
 		if (value.score <= alphaOrig) {
 			new_trans_entry.flag = UPPER_BOUND;

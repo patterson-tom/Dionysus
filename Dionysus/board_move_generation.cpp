@@ -279,7 +279,6 @@ std::vector<Move> Board::get_valid_captures(int player) {
 
 std::vector<Move> Board::get_pawn_captures(int player, int r, int c) {
 	std::vector<Move> moves;
-
 	int dir = player == WHITE ? -1 : 1;
 
 	std::vector<int> promotion_types = { KNIGHT, BISHOP, ROOK, QUEEN };

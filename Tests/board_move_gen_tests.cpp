@@ -281,7 +281,6 @@ TEST(BoardMoveGeneration, QueenMovesCorrectlyInCentre) {
 	std::vector<Move> moves = b.get_valid_moves(WHITE);
 	std::vector<Move> queen_moves;
 	std::copy_if(moves.begin(), moves.end(), std::back_inserter(queen_moves), [](Move m) { return m.start_type == QUEEN; });
-	for (Move m : queen_moves) std::cout << m.start << " " << m.end << std::endl;
 	ASSERT_EQ(queen_moves.size(), 14);
 
 	//check location of moves are correct

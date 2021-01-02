@@ -215,10 +215,16 @@ TEST(BoardMakeMove, PawnPushCreatesEnPassantTarget) {
 	EXPECT_EQ(en_passant_target, EMPTY_SQUARE);
 
 	Move e4 = { WHITE, 52, 36, PAWN, PAWN, EMPTY_SQUARE };
+	Move d5 = { BLACK, 11, 27, PAWN, PAWN, EMPTY_SQUARE };
+	Move e5 = { WHITE, 36, 28, PAWN, PAWN, EMPTY_SQUARE };
+	Move f5 = { BLACK, 13, 29, PAWN, PAWN, EMPTY_SQUARE };
 	b.make_move(e4);
+	b.make_move(d5);
+	b.make_move(e5);
+	b.make_move(f5);
 
 	en_passant_target = b.get_en_passant_target();
-	EXPECT_EQ(en_passant_target, 44);
+	EXPECT_EQ(en_passant_target, 21);
 }
 
 TEST(BoardMakeMove, SingularPawnPushDoesntCreateEnPassantTarget) {
