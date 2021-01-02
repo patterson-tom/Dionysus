@@ -110,7 +110,12 @@ SearchResult Searcher::negamax(int depth, double alpha, double beta, Board *boar
 
 		//if we have the exact score, we can just return this
 		if (trans_entry->flag == EXACT) {
-			return trans_entry->sr;
+			board->make_move(trans_entry->sr.move);
+			if (board->get_half_move_clock() < 100 && !board->is_three_move_rep()) {
+				board->undo_move(trans_entry->sr.move);
+				return trans_entry->sr;
+			}
+			board->undo_move(trans_entry->sr.move);
 		}
 		//if we only have a lower bound, we can update alpha using this
 		else if (trans_entry->flag == LOWER_BOUND) {
@@ -123,7 +128,12 @@ SearchResult Searcher::negamax(int depth, double alpha, double beta, Board *boar
 
 		//normal ab pruning
 		if (alpha >= beta) {
-			return trans_entry->sr;
+			board->make_move(trans_entry->sr.move);
+			if (board->get_half_move_clock() < 100 && !board->is_three_move_rep()) {
+				board->undo_move(trans_entry->sr.move);
+				return trans_entry->sr;
+			}
+			board->undo_move(trans_entry->sr.move);
 		}
 	}
 
@@ -261,7 +271,7 @@ Move Searcher::get_best_move(int milliseconds, Board *board) {
 		//if search at this depth concluded
 		if (searching) {
 			sr = tmp;
-			std::cout << std::fixed << "Depth " << depth << " move " << create_lan_from_move(sr.move) << " " << sr.move.start << " " << sr.move.end << " " << " score " << sr.score << std::endl;
+			std::cout << std::fixed << "Depth " << depth << " move " << create_lan_from_move(sr.move) << " score " << sr.score << std::endl;
 		}
 	}
 

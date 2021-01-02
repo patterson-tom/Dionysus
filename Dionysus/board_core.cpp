@@ -345,13 +345,13 @@ bool Board::is_three_move_rep() {
 
 	//iterate backwards and count occurences of current hash, until last irreversible move
 	int seen = 1;
-	int ind = zobrist_hash.size() - 5;
-	while (zobrist_hash.size() - 1 - ind <= half_move_clock.back()) {
+	int ind = zobrist_hash.size() - 2;
+	while (zobrist_hash.size() - ind <= half_move_clock.back()) {
 		if (zobrist_hash[ind] == zobrist_hash.back()) {
 			seen++;
 			if (seen >= 3) return true;
 		} 
-		ind -= 2;
+		ind--;
 	}
 
 	return false;
